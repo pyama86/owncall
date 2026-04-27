@@ -1,0 +1,32 @@
+display_information:
+  name: OwnCall
+  description: MCP-powered SRE assistant for Grafana alert investigation
+  background_color: "#1a1a2e"
+
+features:
+  bot_user:
+    display_name: OwnCall
+    always_online: true
+
+oauth_config:
+  scopes:
+    bot:
+      - app_mentions:read      # @mention イベントの受信
+      - channels:history       # パブリックチャンネルのメッセージ読み取り
+      - groups:history         # プライベートチャンネルのメッセージ読み取り
+      - chat:write             # メッセージ送信
+      - files:write            # 長い調査結果をファイルとしてアップロード
+      - reactions:write        # リアクション追加・削除
+      - channels:read          # チャンネル一覧の取得
+
+settings:
+  event_subscriptions:
+    bot_events:
+      - app_mention            # @mention に反応
+      - message.channels       # パブリックチャンネルのアラート検知
+      - message.groups         # プライベートチャンネルのアラート検知
+  interactivity:
+    is_enabled: true
+  org_deploy_enabled: false
+  socket_mode_enabled: true    # Socket Mode: 公開エンドポイント不要
+  token_rotation_enabled: false

@@ -1,0 +1,41 @@
+services:
+  # Grafana MCP server (SSE transport)
+  # Provides Grafana dashboard, Loki, and Prometheus query tools to the agent.
+  grafana-mcp:
+    image: grafana/mcp-grafana:latest
+    command: ["-t", "sse"]
+    ports:
+      - "8000:8000"
+    environment:
+      GRAFANA_URL: ${GRAFANA_URL}
+      GRAFANA_SERVICE_ACCOUNT_TOKEN: ${GRAFANA_SERVICE_ACCOUNT_TOKEN}
+    restart: unless-stopped
+
+  # OwnCall Slack bot
+  owncall:
+    build: .
+    depends_on:
+      - grafana-mcp
+    volumes:
+      - ./config.yml:/app/config.yml:ro
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN}
+      SLACK_APP_TOKEN: ${SLACK_APP_TOKEN}
+      GRAFANA_MCP_URL: "http://grafana-mcp:8000/sse"
+      # Optional: GitHub MCP server
+      # GITHUB_MCP_ENABLED: "true"
+      # GITHUB_MCP_URL: "http://github-mcp:9000/sse"
+    restart: unless-stopped
+
+  # Optional: GitHub MCP server
+  # Uncomment to enable source code reading for enhanced troubleshooting.
+  #
+  # github-mcp:
+  #   image: ghcr.io/github/github-mcp-server:latest
+  #   command: ["-t", "sse"]
+  #   ports:
+  #     - "9000:9000"
+  #   environment:
+  #     GITHUB_PERSONAL_ACCESS_TOKEN: ${GITHUB_TOKEN}
+  #   restart: unless-stopped

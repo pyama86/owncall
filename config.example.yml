@@ -1,0 +1,63 @@
+slack:
+  # Slack tokens can be omitted here and provided via environment variables instead.
+  # Priority: environment variable > config file value
+  #
+  #   SLACK_BOT_TOKEN  – Bot Token (xoxb-...)
+  #   SLACK_APP_TOKEN  – App-Level Token for Socket Mode (xapp-...)
+  #
+  # Uncomment below only if you prefer storing tokens in the config file
+  # (not recommended for production).
+  # bot_token: "xoxb-..."
+  # app_token: "xapp-..."
+
+llm:
+  model: "gpt-5.4-mini"
+  # temperature is optional. Omit it for models that do not support the parameter
+  # (e.g. gpt-5.4-mini). Set it only when using models that accept temperature.
+  # temperature: 0.2
+
+agent:
+  system_prompt: |
+    You are an SRE assistant that investigates Grafana alerts and answers
+    observability questions. Use MCP tools to query Grafana dashboards,
+    Loki logs, and Prometheus metrics.
+  constraints:
+    - "When no explicit time range is given, search only the last 3 hours."
+    - "Confirm the namespace/app before running broad queries."
+    - "Prefer |= (line filter) before | json in LogQL for performance."
+
+mcp_servers:
+  - name: "grafana"
+    type: "sse"
+    url: "${GRAFANA_MCP_URL:-http://localhost:8000/sse}"
+    enabled: true
+    cache_tools: true
+
+  # GitHub MCP server (optional).
+  # Set GITHUB_MCP_ENABLED=true and GITHUB_MCP_URL to activate.
+  - name: "github"
+    type: "sse"
+    url: "${GITHUB_MCP_URL}"
+    enabled: "${GITHUB_MCP_ENABLED:-false}"
+    cache_tools: true
+
+alert_detection:
+  enabled: true
+  # Restrict alert detection to specific channel IDs.
+  # Leave empty to monitor all channels the bot is in.
+  channels: []
+  rules:
+    - type: "bot_name"
+      pattern: "(?i)grafana|alertmanager|prometheus"
+    - type: "text"
+      pattern: "\\[FIRING:\\d+\\]|\\[RESOLVED\\]"
+    - type: "attachment_field"
+      field: "alertname"
+
+response:
+  # Maximum length of a single Slack message. Longer responses are uploaded
+  # as a file to avoid hitting Slack's character limit.
+  max_length: 3000
+  thread_reply: true
+  reaction_on_start: "eyes"
+  reaction_on_complete: "white_check_mark"
