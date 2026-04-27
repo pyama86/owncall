@@ -7,7 +7,7 @@ name = "owncall"
 version = "0.1.0"
 description = "MCP-powered Slack bot for Grafana/Prometheus alert investigation"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.13"
 license = { text = "MIT" }
 keywords = ["slack", "grafana", "mcp", "sre", "observability"]
 dependencies = [
@@ -18,13 +18,7 @@ dependencies = [
     "aiohttp>=3.9.0",
 ]
 
-[project.scripts]
-owncall = "owncall.cli:main"
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/owncall"]
-
-[dependency-groups]
+[project.optional-dependencies]
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
@@ -32,9 +26,15 @@ dev = [
     "ruff>=0.4.0",
 ]
 
+[project.scripts]
+owncall = "owncall.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/owncall"]
+
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py313"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]

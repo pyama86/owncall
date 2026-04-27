@@ -7,16 +7,25 @@ contextlib.AsyncExitStack to manage their lifetimes together.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Union
 
-from agents.mcp import MCPServerSse, MCPServerStdio, MCPServerStreamableHttp
+from agents.mcp import MCPServerSse, MCPServerStdio
+
+# MCPServerStreamableHttp was added in a later release of openai-agents.
+# Import it conditionally so the package still works with older versions.
+try:
+    from agents.mcp import MCPServerStreamableHttp
+
+    _streamable_http_available = True
+except ImportError:
+    MCPServerStreamableHttp = None  # type: ignore[assignment,misc]
+    _streamable_http_available = False
 
 from owncall.config import MCPServerConfig
 
 logger = logging.getLogger(__name__)
 
-# Type alias for any supported MCP server variant
-AnyMCPServer = MCPServerSse | MCPServerStreamableHttp | MCPServerStdio
+AnyMCPServer = Union[MCPServerSse, MCPServerStdio]
 
 
 def build_mcp_servers(configs: list[MCPServerConfig]) -> list[AnyMCPServer]:
@@ -59,6 +68,13 @@ def _create_server(cfg: MCPServerConfig) -> AnyMCPServer | None:
         )
 
     if server_type in ("streamable_http", "streamable-http"):
+        if not _streamable_http_available:
+            logger.warning(
+                "MCP server '%s': streamable_http transport requires a newer version of "
+                "openai-agents. Skipping.",
+                cfg.name,
+            )
+            return None
         if not cfg.url:
             logger.warning("MCP server '%s' has no URL, skipping", cfg.name)
             return None

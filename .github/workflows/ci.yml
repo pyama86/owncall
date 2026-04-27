@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.13"]
 
     steps:
       - name: Checkout code
@@ -87,10 +87,3 @@ jobs:
           tags: owncall:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Upload image as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: docker-image-${{ github.sha }}
-          path: /tmp/owncall.tar
-        if: false  # Docker image is not exported; artifact step kept for reference
