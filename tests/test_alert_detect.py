@@ -1,7 +1,5 @@
 """Tests for alert detection logic."""
 
-import pytest
-
 from owncall.config import AlertDetectionConfig, AlertRule
 from owncall.util.alert_detect import extract_alert_summary, is_alert_message
 
@@ -47,9 +45,7 @@ class TestIsAlertMessage:
         cfg = _make_cfg([AlertRule(type="attachment_field", field="alertname")])
         msg = {
             "text": "",
-            "attachments": [
-                {"fields": [{"title": "alertname", "value": "HighErrorRate"}]}
-            ],
+            "attachments": [{"fields": [{"title": "alertname", "value": "HighErrorRate"}]}],
         }
         assert is_alert_message(msg, cfg) is True
 

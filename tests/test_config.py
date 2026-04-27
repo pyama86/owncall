@@ -127,7 +127,7 @@ class TestLoadConfig:
 
     def test_default_values(self, minimal_config_yaml):
         cfg = load_config(minimal_config_yaml)
-        assert cfg.llm.temperature == 0.2
+        assert cfg.llm.temperature is None
         assert cfg.response.max_length == 3000
         assert cfg.response.reaction_on_start == "eyes"
         assert cfg.response.reaction_on_complete == "white_check_mark"

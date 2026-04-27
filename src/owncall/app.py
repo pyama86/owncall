@@ -15,8 +15,8 @@ from __future__ import annotations
 import contextlib
 import logging
 
-from slack_bolt.async_app import AsyncApp
 from slack_bolt.adapter.socket_mode.async_handler import AsyncSocketModeHandler
+from slack_bolt.async_app import AsyncApp
 
 from owncall.agent import create_agent
 from owncall.config import AppConfig
@@ -36,9 +36,7 @@ async def run_bot(config: AppConfig) -> None:
     server_instances = build_mcp_servers(config.mcp_servers)
 
     if not server_instances:
-        logger.warning(
-            "No MCP servers are enabled. The agent will have no tools available."
-        )
+        logger.warning("No MCP servers are enabled. The agent will have no tools available.")
 
     # Open all MCP server connections and keep them alive for the bot lifetime
     async with contextlib.AsyncExitStack() as stack:

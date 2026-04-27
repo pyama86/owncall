@@ -1,7 +1,5 @@
 """Tests for thread conversation context manager."""
 
-import pytest
-
 from owncall.context.thread import _message_role
 
 

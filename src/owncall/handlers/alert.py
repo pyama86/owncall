@@ -38,9 +38,7 @@ Identify the likely root cause and suggest remediation steps.
 """
 
 
-def register_alert_handler(
-    app, agent, bot_user_id: str, cfg: AppConfig
-) -> None:
+def register_alert_handler(app, agent, bot_user_id: str, cfg: AppConfig) -> None:
     """Register the message event handler for alert detection.
 
     Uses @app.event("message") instead of @app.message() so that messages

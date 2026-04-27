@@ -40,9 +40,7 @@ def register_block_action_handlers(
             # The selector message may itself be in a thread; use thread_ts when present
             thread_ts: str = msg.get("thread_ts") or msg["ts"]
 
-            logger.info(
-                "Namespace selected: %s in %s/%s", selected, channel, thread_ts
-            )
+            logger.info("Namespace selected: %s in %s/%s", selected, channel, thread_ts)
 
             # Post the selection visibly so the thread history reflects what was chosen
             await client.chat_postMessage(
