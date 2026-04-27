@@ -31,9 +31,11 @@ def register_block_action_handlers(
         # Acknowledge immediately to satisfy Slack's 3-second timeout
         await ack()
 
+        # Extract channel before try so it is always available in the finally block
+        channel: str = body["channel"]["id"]
+
         try:
             selected: str = body["actions"][0]["selected_option"]["value"]
-            channel: str = body["channel"]["id"]
             msg = body["message"]
             # The selector message may itself be in a thread; use thread_ts when present
             thread_ts: str = msg.get("thread_ts") or msg["ts"]

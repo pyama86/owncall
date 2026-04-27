@@ -12,7 +12,6 @@ When a user @mentions the bot, this handler:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import re
 

@@ -7,7 +7,7 @@ contextlib.AsyncExitStack to manage their lifetimes together.
 from __future__ import annotations
 
 import logging
-from typing import Any, Union
+from typing import Any
 
 from agents.mcp import MCPServerSse, MCPServerStdio
 
@@ -25,7 +25,7 @@ from owncall.config import MCPServerConfig
 
 logger = logging.getLogger(__name__)
 
-AnyMCPServer = Union[MCPServerSse, MCPServerStdio]
+AnyMCPServer = MCPServerSse | MCPServerStdio
 
 
 def build_mcp_servers(configs: list[MCPServerConfig]) -> list[AnyMCPServer]:
