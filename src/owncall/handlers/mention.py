@@ -55,6 +55,10 @@ def register_mention_handler(app, agent, thread_ctx: ThreadContextManager, cfg: 
             else:
                 input_data = _clean_mention_text(event.get("text", ""))
 
+            namespace = cfg.channel_namespace_map.get(channel)
+            if namespace:
+                input_data = _inject_namespace_context(input_data, namespace)
+
             logger.info("Running agent for mention in %s/%s", channel, thread_ts)
             result = await Runner.run(agent, input_data)
             response_text = result.final_output
@@ -70,7 +74,8 @@ def register_mention_handler(app, agent, thread_ctx: ThreadContextManager, cfg: 
 
             # When the agent is asking for namespace, fetch candidates from Grafana
             # and present a Block Kit selector so the user can pick without typing.
-            if is_asking_for_namespace(response_text):
+            # Skip the selector if the channel already has a namespace mapping in config.
+            if is_asking_for_namespace(response_text) and not namespace:
                 namespaces = await fetch_namespaces(agent)
                 if namespaces:
                     blocks = build_namespace_selector_blocks(namespaces)
@@ -111,3 +116,26 @@ def _clean_mention_text(text: str) -> str:
     """Remove bot @mentions from the text and return a clean query string."""
     cleaned = re.sub(r"<@[A-Z0-9]+>", "", text).strip()
     return cleaned if cleaned else "Hello! How can I help you?"
+
+
+def _inject_namespace_context(
+    input_data: str | list[dict], namespace: str
+) -> list[dict]:
+    """Prepend namespace context to the agent input so it uses the correct namespace.
+
+    Injected as a synthetic exchange so the agent treats the namespace as already
+    confirmed rather than asking the user to select one.
+    """
+    prefix = [
+        {
+            "role": "user",
+            "content": f"The Kubernetes namespace for this channel is: {namespace}. Use it as the default namespace.",
+        },
+        {
+            "role": "assistant",
+            "content": f"Understood. I will use '{namespace}' as the default namespace for this conversation.",
+        },
+    ]
+    if isinstance(input_data, list):
+        return prefix + input_data
+    return prefix + [{"role": "user", "content": input_data}]

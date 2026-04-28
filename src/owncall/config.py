@@ -121,6 +121,7 @@ class AppConfig:
     mcp_servers: list[MCPServerConfig]
     alert_detection: AlertDetectionConfig
     response: ResponseConfig
+    channel_namespace_map: dict[str, str] = field(default_factory=dict)
 
 
 def _parse_bool(value: Any) -> bool:
@@ -210,4 +211,5 @@ def load_config(path: str) -> AppConfig:
             reaction_on_start=response_data.get("reaction_on_start", "eyes"),
             reaction_on_complete=response_data.get("reaction_on_complete", "white_check_mark"),
         ),
+        channel_namespace_map=data.get("channel_namespace_map", {}),
     )
