@@ -136,12 +136,6 @@ Then start a GitHub MCP server (see the `docker-compose.yml` for an example).
 | `response.reaction_on_start` | `eyes` | Reaction added while processing |
 | `response.reaction_on_complete` | `white_check_mark` | Reaction added on completion |
 
-## Sample Files
-
-The repository includes sample scripts demonstrating direct MCP usage:
-
-- `example_sse.py` — minimal example: connect and list available Grafana tools
-- `main_sse.py` — full example with a detailed Loki investigation prompt
 
 ## License
 
