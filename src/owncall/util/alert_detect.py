@@ -28,13 +28,40 @@ def is_alert_message(message: dict, cfg: AlertDetectionConfig) -> bool:
     return False
 
 
+def _collect_searchable_text(message: dict) -> str:
+    """Collect all text content from a message for pattern matching.
+
+    Slack integrations may place alert content in the top-level text field,
+    in attachments, or in Block Kit blocks. This function gathers text from
+    all of these locations so that a single regex search covers them all.
+    """
+    parts: list[str] = []
+
+    text = message.get("text", "")
+    if text:
+        parts.append(text)
+
+    for attachment in message.get("attachments", []):
+        for key in ("text", "fallback", "pretext", "title"):
+            val = attachment.get(key, "")
+            if val:
+                parts.append(val)
+
+    for block in message.get("blocks", []):
+        block_text = block.get("text", {})
+        if isinstance(block_text, dict) and block_text.get("text"):
+            parts.append(block_text["text"])
+
+    return "\n".join(parts)
+
+
 def _matches_rule(message: dict, rule: AlertRule) -> bool:
     if rule.type == "bot_name":
         username = message.get("username", "")
         return bool(rule.pattern and re.search(rule.pattern, username))
 
     if rule.type == "text":
-        text = message.get("text", "")
+        text = _collect_searchable_text(message)
         return bool(rule.pattern and re.search(rule.pattern, text))
 
     if rule.type == "attachment_field":
