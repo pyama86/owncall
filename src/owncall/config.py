@@ -59,7 +59,9 @@ def _apply_env_overrides(data: dict) -> None:
     for env_var, (section, key) in _ENV_OVERRIDES.items():
         value = os.environ.get(env_var)
         if value:
-            data.setdefault(section, {})[key] = value
+            if not isinstance(data.get(section), dict):
+                data[section] = {}
+            data[section][key] = value
 
 
 @dataclass
