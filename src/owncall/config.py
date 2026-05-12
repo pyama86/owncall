@@ -106,6 +106,11 @@ class AlertDetectionConfig:
 
 
 @dataclass
+class MentionConfig:
+    channels: list[str] = field(default_factory=list)
+
+
+@dataclass
 class ResponseConfig:
     max_length: int = 3000
     thread_reply: bool = True
@@ -121,6 +126,7 @@ class AppConfig:
     mcp_servers: list[MCPServerConfig]
     alert_detection: AlertDetectionConfig
     response: ResponseConfig
+    mention: MentionConfig = field(default_factory=MentionConfig)
     channel_namespace_map: dict[str, str] = field(default_factory=dict)
 
 
@@ -184,6 +190,7 @@ def load_config(path: str) -> AppConfig:
     llm_data = data.get("llm", {})
     agent_data = data.get("agent", {})
     alert_data = data.get("alert_detection", {})
+    mention_data = data.get("mention", {})
     response_data = data.get("response", {})
 
     return AppConfig(
@@ -210,6 +217,9 @@ def load_config(path: str) -> AppConfig:
             thread_reply=_parse_bool(response_data.get("thread_reply", True)),
             reaction_on_start=response_data.get("reaction_on_start", "eyes"),
             reaction_on_complete=response_data.get("reaction_on_complete", "white_check_mark"),
+        ),
+        mention=MentionConfig(
+            channels=mention_data.get("channels", []),
         ),
         channel_namespace_map=data.get("channel_namespace_map", {}),
     )

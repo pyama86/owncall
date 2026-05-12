@@ -38,6 +38,10 @@ def register_mention_handler(app, agent, thread_ctx: ThreadContextManager, cfg: 
         event_ts = event["ts"]
         thread_ts = event.get("thread_ts", event_ts)
 
+        if cfg.mention.channels and channel not in cfg.mention.channels:
+            logger.debug("Ignoring mention in non-configured channel %s", channel)
+            return
+
         try:
             await client.reactions_add(
                 channel=channel,

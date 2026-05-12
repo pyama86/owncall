@@ -54,6 +54,11 @@ alert_detection:
     - type: "attachment_field"
       field: "alertname"
 
+mention:
+  # Restrict mention responses to specific channel IDs.
+  # Leave empty to respond in all channels the bot is in.
+  channels: []
+
 response:
   # Maximum length of a single Slack message. Longer responses are uploaded
   # as a file to avoid hitting Slack's character limit.
