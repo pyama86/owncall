@@ -38,13 +38,13 @@ def is_asking_for_namespace(text: str) -> bool:
     return bool(_NAMESPACE_RE.search(text)) and "?" in text
 
 
-async def fetch_namespaces(agent) -> list[str]:
+async def fetch_namespaces(agent, max_turns: int = 30) -> list[str]:
     """Run a lightweight agent query to retrieve Loki namespace label values.
 
     Returns an empty list when the query fails or produces no recognisable output.
     """
     try:
-        result = await Runner.run(agent, _FETCH_NAMESPACES_PROMPT)
+        result = await Runner.run(agent, _FETCH_NAMESPACES_PROMPT, max_turns=max_turns)
         raw = result.final_output.strip()
         namespaces = [line.strip() for line in raw.splitlines() if line.strip()]
         return namespaces

@@ -60,7 +60,7 @@ def register_block_action_handlers(
                 name=cfg.response.reaction_on_start,
             )
 
-            result = await Runner.run(agent, input_list)
+            result = await Runner.run(agent, input_list, max_turns=cfg.agent.max_turns)
 
             await post_response(
                 client=client,

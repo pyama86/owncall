@@ -80,6 +80,7 @@ class LLMConfig:
 class AgentConfig:
     system_prompt: str = ""
     constraints: list[str] = field(default_factory=list)
+    max_turns: int = 30
 
 
 @dataclass
@@ -207,6 +208,7 @@ def load_config(path: str) -> AppConfig:
         agent=AgentConfig(
             system_prompt=agent_data.get("system_prompt", ""),
             constraints=agent_data.get("constraints", []),
+            max_turns=int(agent_data.get("max_turns", 30)),
         ),
         mcp_servers=[_parse_mcp_server(s) for s in data.get("mcp_servers", [])],
         alert_detection=AlertDetectionConfig(

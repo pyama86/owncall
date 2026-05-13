@@ -64,7 +64,7 @@ def register_mention_handler(app, agent, thread_ctx: ThreadContextManager, cfg: 
                 input_data = _inject_namespace_context(input_data, namespace)
 
             logger.info("Running agent for mention in %s/%s", channel, thread_ts)
-            result = await Runner.run(agent, input_data)
+            result = await Runner.run(agent, input_data, max_turns=cfg.agent.max_turns)
             response_text = result.final_output
 
             # Post the agent's text response first
@@ -80,7 +80,7 @@ def register_mention_handler(app, agent, thread_ctx: ThreadContextManager, cfg: 
             # and present a Block Kit selector so the user can pick without typing.
             # Skip the selector if the channel already has a namespace mapping in config.
             if is_asking_for_namespace(response_text) and not namespace:
-                namespaces = await fetch_namespaces(agent)
+                namespaces = await fetch_namespaces(agent, cfg.agent.max_turns)
                 if namespaces:
                     blocks = build_namespace_selector_blocks(namespaces)
                     await client.chat_postMessage(
