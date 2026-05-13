@@ -98,9 +98,7 @@ class TestIsAlertMessage:
         cfg = _make_cfg([AlertRule(type="text", pattern="Warning")])
         msg = {
             "text": "",
-            "blocks": [
-                {"type": "section", "text": {"type": "mrkdwn", "text": "[Warning] alert"}}
-            ],
+            "blocks": [{"type": "section", "text": {"type": "mrkdwn", "text": "[Warning] alert"}}],
         }
         assert is_alert_message(msg, cfg) is True
 

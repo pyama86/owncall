@@ -122,9 +122,7 @@ def _clean_mention_text(text: str) -> str:
     return cleaned if cleaned else "Hello! How can I help you?"
 
 
-def _inject_namespace_context(
-    input_data: str | list[dict], namespace: str
-) -> list[dict]:
+def _inject_namespace_context(input_data: str | list[dict], namespace: str) -> list[dict]:
     """Prepend namespace context to the agent input so it uses the correct namespace.
 
     Injected as a synthetic exchange so the agent treats the namespace as already
