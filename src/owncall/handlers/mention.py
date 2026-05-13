@@ -133,11 +133,17 @@ def _inject_namespace_context(
     prefix = [
         {
             "role": "user",
-            "content": f"The Kubernetes namespace for this channel is: {namespace}. Use it as the default namespace.",
+            "content": (
+                f"The Kubernetes namespace for this channel is: {namespace}."
+                " Use it as the default namespace."
+            ),
         },
         {
             "role": "assistant",
-            "content": f"Understood. I will use '{namespace}' as the default namespace for this conversation.",
+            "content": (
+                f"Understood. I will use '{namespace}' as the default namespace"
+                " for this conversation."
+            ),
         },
     ]
     if isinstance(input_data, list):
