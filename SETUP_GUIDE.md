@@ -4,7 +4,7 @@
 
 ## 前提条件
 
-- Python 3.10以上がインストールされていること
+- Python 3.13以上がインストールされていること
 - Dockerがインストールされていること
 - OpenAI APIキーを持っていること
 - Grafanaインスタンスへのアクセス権限があること
@@ -28,25 +28,61 @@
 cd /path/to/owncall
 
 # 仮想環境の作成
-python3 -m venv venv
+python3 -m venv .venv
 
 # 仮想環境の有効化
-source venv/bin/activate  # Linux/Mac
+source .venv/bin/activate  # Linux/Mac
 # または
-venv\Scripts\activate     # Windows
+.venv\Scripts\activate     # Windows
 
-# 依存パッケージのインストール
-pip install -r requirements.txt
+# パッケージのインストール（開発用依存含む）
+pip install -e ".[dev]"
 ```
 
-## ステップ3: 環境変数の設定
+## ステップ3: 設定ファイルの作成
 
 ```bash
-# OpenAI APIキー
-export OPENAI_API_KEY="sk-xxxxxxxxxxxxxxxxxxxxx"
+cp config.example.yml config.yml
 ```
 
-Grafana接続情報（URLとトークン）は次のステップでDockerコンテナ起動時に渡します。
+`config.yml` を編集します。Slackトークンは環境変数で渡すことを推奨します：
+
+```yaml
+llm:
+  model: "gpt-5.4-mini"
+
+agent:
+  system_prompt: |
+    You are an SRE assistant. Use MCP tools to investigate Grafana alerts.
+  constraints:
+    - "Search only the last 3 hours unless a time range is specified."
+
+mcp_servers:
+  - name: "grafana"
+    type: "sse"
+    url: "http://localhost:8000/sse"
+    enabled: true
+
+alert_detection:
+  enabled: true
+  channels: []
+  rules:
+    - type: "bot_name"
+      pattern: "(?i)grafana|alertmanager|prometheus"
+
+# メンション応答を特定チャンネルに制限する場合に設定
+# 未設定の場合は全チャンネルで応答
+mention:
+  channels: []
+```
+
+## ステップ4: 環境変数の設定
+
+```bash
+export OPENAI_API_KEY="sk-xxxxxxxxxxxxxxxxxxxxx"
+export SLACK_BOT_TOKEN="xoxb-..."
+export SLACK_APP_TOKEN="xapp-..."
+```
 
 ### 環境変数の永続化（オプション）
 
@@ -57,7 +93,7 @@ echo 'export OPENAI_API_KEY="sk-xxxxxxxxxxxxxxxxxxxxx"' >> ~/.zshrc
 source ~/.zshrc
 ```
 
-## ステップ4: Grafana MCPサーバーの起動
+## ステップ5: Grafana MCPサーバーの起動
 
 別のターミナルを開いて、以下のコマンドでGrafana MCPサーバーを起動します：
 
@@ -79,7 +115,25 @@ docker run --rm -p 8000:8000 -i \
 time=2026-04-23T00:00:00.000Z level=INFO msg="Starting Grafana MCP server using SSE transport"
 ```
 
-## ステップ5: 動作確認
+## ステップ6: ボットの起動
+
+```bash
+owncall -c config.yml
+```
+
+### Docker Compose（all-in-one）
+
+```bash
+cp config.example.yml config.yml
+export OPENAI_API_KEY=sk-...
+export SLACK_BOT_TOKEN=xoxb-...
+export SLACK_APP_TOKEN=xapp-...
+export GRAFANA_URL=https://your-grafana.example.com
+export GRAFANA_SERVICE_ACCOUNT_TOKEN=your-token
+docker compose up
+```
+
+## ステップ7: 動作確認
 
 環境変数の確認：
 
@@ -100,48 +154,37 @@ event: endpoint
 data: /message?sessionId=...
 ```
 
-サンプルの実行：
-
-```bash
-# シンプルサンプル
-python example_sse.py
-
-# 詳細版（デバッグ情報付き）
-python main_sse.py
-```
-
 ## よくある問題と解決方法
 
-### 1. `ModuleNotFoundError: No module named 'agents'`
+### 1. `zsh: command not found: owncall`
+
+**原因**: パッケージがインストールされていない、または仮想環境が有効化されていない
+
+**解決方法**:
+```bash
+source .venv/bin/activate
+owncall -c config.yml
+
+# または直接パスを指定
+.venv/bin/owncall -c config.yml
+```
+
+### 2. `ModuleNotFoundError: No module named 'agents'`
 
 **原因**: openai-agentsがインストールされていない
 
 **解決方法**:
 ```bash
-pip install openai-agents
+pip install -e ".[dev]"
 ```
 
-### 2. `ValueError: OPENAI_API_KEY環境変数が設定されていません`
+### 3. `ValueError: OPENAI_API_KEY環境変数が設定されていません`
 
 **原因**: 環境変数が設定されていない
 
 **解決方法**:
 ```bash
 export OPENAI_API_KEY="your-api-key"
-```
-
-### 3. `uvx: command not found`
-
-**原因**: uvがインストールされていない
-
-**解決方法**:
-```bash
-pip install uv
-```
-
-または、`command`を`mcp-grafana`に変更：
-```bash
-pip install mcp-grafana
 ```
 
 ### 4. Grafana接続エラー
@@ -169,8 +212,9 @@ pip install mcp-grafana
 
 ## 次のステップ
 
-1. `main.py`の`question`変数を変更して、異なる質問を試す
-2. `instructions`を変更して、エージェントの振る舞いをカスタマイズ
-3. `tool_filter`を使って、特定のツールのみを有効化
+1. `config.yml` の `agent.system_prompt` や `constraints` を変更して、エージェントの振る舞いをカスタマイズ
+2. `alert_detection.rules` でアラート検知パターンを調整
+3. `mention.channels` で応答するチャンネルを制限
+4. `channel_namespace_map` でチャンネルとKubernetes namespaceの紐づけを設定
 
-詳細は[README.md](README.md)の「カスタマイズ」セクションを参照してください。
+詳細は[README.md](README.md)の「Configuration Reference」セクションを参照してください。

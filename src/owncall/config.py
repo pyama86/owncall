@@ -59,7 +59,9 @@ def _apply_env_overrides(data: dict) -> None:
     for env_var, (section, key) in _ENV_OVERRIDES.items():
         value = os.environ.get(env_var)
         if value:
-            data.setdefault(section, {})[key] = value
+            if not isinstance(data.get(section), dict):
+                data[section] = {}
+            data[section][key] = value
 
 
 @dataclass
@@ -78,6 +80,7 @@ class LLMConfig:
 class AgentConfig:
     system_prompt: str = ""
     constraints: list[str] = field(default_factory=list)
+    max_turns: int = 30
 
 
 @dataclass
@@ -106,6 +109,11 @@ class AlertDetectionConfig:
 
 
 @dataclass
+class MentionConfig:
+    channels: list[str] = field(default_factory=list)
+
+
+@dataclass
 class ResponseConfig:
     max_length: int = 3000
     thread_reply: bool = True
@@ -121,6 +129,8 @@ class AppConfig:
     mcp_servers: list[MCPServerConfig]
     alert_detection: AlertDetectionConfig
     response: ResponseConfig
+    mention: MentionConfig = field(default_factory=MentionConfig)
+    channel_namespace_map: dict[str, str] = field(default_factory=dict)
 
 
 def _parse_bool(value: Any) -> bool:
@@ -183,6 +193,7 @@ def load_config(path: str) -> AppConfig:
     llm_data = data.get("llm", {})
     agent_data = data.get("agent", {})
     alert_data = data.get("alert_detection", {})
+    mention_data = data.get("mention", {})
     response_data = data.get("response", {})
 
     return AppConfig(
@@ -197,6 +208,7 @@ def load_config(path: str) -> AppConfig:
         agent=AgentConfig(
             system_prompt=agent_data.get("system_prompt", ""),
             constraints=agent_data.get("constraints", []),
+            max_turns=int(agent_data.get("max_turns", 30)),
         ),
         mcp_servers=[_parse_mcp_server(s) for s in data.get("mcp_servers", [])],
         alert_detection=AlertDetectionConfig(
@@ -210,4 +222,8 @@ def load_config(path: str) -> AppConfig:
             reaction_on_start=response_data.get("reaction_on_start", "eyes"),
             reaction_on_complete=response_data.get("reaction_on_complete", "white_check_mark"),
         ),
+        mention=MentionConfig(
+            channels=mention_data.get("channels", []),
+        ),
+        channel_namespace_map=data.get("channel_namespace_map", {}),
     )

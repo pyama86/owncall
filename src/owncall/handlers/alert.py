@@ -85,9 +85,12 @@ def register_alert_handler(app, agent, bot_user_id: str, cfg: AppConfig) -> None
             try:
                 summary = extract_alert_summary(message)
                 prompt = _INVESTIGATION_PROMPT_TEMPLATE.format(summary=summary)
+                namespace = cfg.channel_namespace_map.get(channel)
+                if namespace:
+                    prompt += f"\nThe Kubernetes namespace for this channel is: {namespace}\n"
 
                 logger.info("Auto-investigating alert in %s/%s", channel, event_ts)
-                result = await Runner.run(agent, prompt)
+                result = await Runner.run(agent, prompt, max_turns=cfg.agent.max_turns)
 
                 await post_response(
                     client=client,

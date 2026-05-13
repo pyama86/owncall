@@ -54,6 +54,11 @@ alert_detection:
     - type: "attachment_field"
       field: "alertname"
 
+mention:
+  # Restrict mention responses to specific channel IDs.
+  # Leave empty to respond in all channels the bot is in.
+  channels: []
+
 response:
   # Maximum length of a single Slack message. Longer responses are uploaded
   # as a file to avoid hitting Slack's character limit.
@@ -61,3 +66,13 @@ response:
   thread_reply: true
   reaction_on_start: "eyes"
   reaction_on_complete: "white_check_mark"
+
+# Map Slack channel IDs or names to Kubernetes namespaces.
+# When a channel has a mapping the agent will automatically use that namespace
+# without asking the user to select one, and alert investigations will be scoped
+# to that namespace from the start.
+#
+# Example:
+# channel_namespace_map:
+#   C01234567: "production"
+#   C09876543: "staging"

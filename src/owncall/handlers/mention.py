@@ -38,6 +38,10 @@ def register_mention_handler(app, agent, thread_ctx: ThreadContextManager, cfg: 
         event_ts = event["ts"]
         thread_ts = event.get("thread_ts", event_ts)
 
+        if cfg.mention.channels and channel not in cfg.mention.channels:
+            logger.debug("Ignoring mention in non-configured channel %s", channel)
+            return
+
         try:
             await client.reactions_add(
                 channel=channel,
@@ -55,8 +59,12 @@ def register_mention_handler(app, agent, thread_ctx: ThreadContextManager, cfg: 
             else:
                 input_data = _clean_mention_text(event.get("text", ""))
 
+            namespace = cfg.channel_namespace_map.get(channel)
+            if namespace:
+                input_data = _inject_namespace_context(input_data, namespace)
+
             logger.info("Running agent for mention in %s/%s", channel, thread_ts)
-            result = await Runner.run(agent, input_data)
+            result = await Runner.run(agent, input_data, max_turns=cfg.agent.max_turns)
             response_text = result.final_output
 
             # Post the agent's text response first
@@ -70,8 +78,9 @@ def register_mention_handler(app, agent, thread_ctx: ThreadContextManager, cfg: 
 
             # When the agent is asking for namespace, fetch candidates from Grafana
             # and present a Block Kit selector so the user can pick without typing.
-            if is_asking_for_namespace(response_text):
-                namespaces = await fetch_namespaces(agent)
+            # Skip the selector if the channel already has a namespace mapping in config.
+            if is_asking_for_namespace(response_text) and not namespace:
+                namespaces = await fetch_namespaces(agent, cfg.agent.max_turns)
                 if namespaces:
                     blocks = build_namespace_selector_blocks(namespaces)
                     await client.chat_postMessage(
@@ -111,3 +120,26 @@ def _clean_mention_text(text: str) -> str:
     """Remove bot @mentions from the text and return a clean query string."""
     cleaned = re.sub(r"<@[A-Z0-9]+>", "", text).strip()
     return cleaned if cleaned else "Hello! How can I help you?"
+
+
+def _inject_namespace_context(
+    input_data: str | list[dict], namespace: str
+) -> list[dict]:
+    """Prepend namespace context to the agent input so it uses the correct namespace.
+
+    Injected as a synthetic exchange so the agent treats the namespace as already
+    confirmed rather than asking the user to select one.
+    """
+    prefix = [
+        {
+            "role": "user",
+            "content": f"The Kubernetes namespace for this channel is: {namespace}. Use it as the default namespace.",
+        },
+        {
+            "role": "assistant",
+            "content": f"Understood. I will use '{namespace}' as the default namespace for this conversation.",
+        },
+    ]
+    if isinstance(input_data, list):
+        return prefix + input_data
+    return prefix + [{"role": "user", "content": input_data}]

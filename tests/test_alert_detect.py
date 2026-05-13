@@ -73,6 +73,46 @@ class TestIsAlertMessage:
         msg = {"text": "[FIRING:1] Alert", "username": "Grafana"}
         assert is_alert_message(msg, cfg) is False
 
+    def test_text_match_in_attachment_text(self):
+        cfg = _make_cfg([AlertRule(type="text", pattern="Warning|Critical")])
+        msg = {
+            "text": "",
+            "attachments": [
+                {
+                    "text": ":warning: [Warning] backend-core - go-api - High Connections",
+                    "fields": [
+                        {"title": "datasource", "value": "gcp"},
+                        {"title": "instance_id", "value": "go-api-production-002"},
+                    ],
+                }
+            ],
+        }
+        assert is_alert_message(msg, cfg) is True
+
+    def test_text_match_in_attachment_fallback(self):
+        cfg = _make_cfg([AlertRule(type="text", pattern="Critical")])
+        msg = {"text": "", "attachments": [{"fallback": "[Critical] alert fired"}]}
+        assert is_alert_message(msg, cfg) is True
+
+    def test_text_match_in_block_kit(self):
+        cfg = _make_cfg([AlertRule(type="text", pattern="Warning")])
+        msg = {
+            "text": "",
+            "blocks": [
+                {"type": "section", "text": {"type": "mrkdwn", "text": "[Warning] alert"}}
+            ],
+        }
+        assert is_alert_message(msg, cfg) is True
+
+    def test_text_no_match_across_all_fields(self):
+        cfg = _make_cfg([AlertRule(type="text", pattern="FIRING")])
+        msg = {
+            "text": "",
+            "attachments": [{"text": "All good", "fallback": "All good"}],
+            "blocks": [{"type": "section", "text": {"type": "mrkdwn", "text": "OK"}}],
+        }
+        assert is_alert_message(msg, cfg) is False
+
     def test_unknown_rule_type_skipped(self):
         cfg = _make_cfg([AlertRule(type="unknown_type", pattern=".*")])
         msg = {"text": "anything"}

@@ -131,3 +131,40 @@ class TestLoadConfig:
         assert cfg.response.max_length == 3000
         assert cfg.response.reaction_on_start == "eyes"
         assert cfg.response.reaction_on_complete == "white_check_mark"
+
+    def test_channel_namespace_map_parsed(self, tmp_path):
+        content = textwrap.dedent("""
+            slack:
+              app_token: "xapp-test"
+              bot_token: "xoxb-test"
+            channel_namespace_map:
+              C01234567: "production"
+              C09876543: "staging"
+        """)
+        p = tmp_path / "cfg.yml"
+        p.write_text(content)
+        cfg = load_config(str(p))
+        assert cfg.channel_namespace_map == {"C01234567": "production", "C09876543": "staging"}
+
+    def test_channel_namespace_map_defaults_empty(self, minimal_config_yaml):
+        cfg = load_config(minimal_config_yaml)
+        assert cfg.channel_namespace_map == {}
+
+    def test_mention_channels_parsed(self, tmp_path):
+        content = textwrap.dedent("""
+            slack:
+              app_token: "xapp-test"
+              bot_token: "xoxb-test"
+            mention:
+              channels:
+                - "C01234567"
+                - "C09876543"
+        """)
+        p = tmp_path / "cfg.yml"
+        p.write_text(content)
+        cfg = load_config(str(p))
+        assert cfg.mention.channels == ["C01234567", "C09876543"]
+
+    def test_mention_channels_defaults_empty(self, minimal_config_yaml):
+        cfg = load_config(minimal_config_yaml)
+        assert cfg.mention.channels == []
