@@ -122,9 +122,7 @@ def _clean_mention_text(text: str) -> str:
     return cleaned if cleaned else "Hello! How can I help you?"
 
 
-def _inject_namespace_context(
-    input_data: str | list[dict], namespace: str
-) -> list[dict]:
+def _inject_namespace_context(input_data: str | list[dict], namespace: str) -> list[dict]:
     """Prepend namespace context to the agent input so it uses the correct namespace.
 
     Injected as a synthetic exchange so the agent treats the namespace as already
@@ -133,11 +131,17 @@ def _inject_namespace_context(
     prefix = [
         {
             "role": "user",
-            "content": f"The Kubernetes namespace for this channel is: {namespace}. Use it as the default namespace.",
+            "content": (
+                f"The Kubernetes namespace for this channel is: {namespace}."
+                " Use it as the default namespace."
+            ),
         },
         {
             "role": "assistant",
-            "content": f"Understood. I will use '{namespace}' as the default namespace for this conversation.",
+            "content": (
+                f"Understood. I will use '{namespace}' as the default namespace"
+                " for this conversation."
+            ),
         },
     ]
     if isinstance(input_data, list):
