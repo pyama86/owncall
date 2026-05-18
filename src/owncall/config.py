@@ -102,10 +102,18 @@ class AlertRule:
 
 
 @dataclass
+class AlertDedupConfig:
+    enabled: bool = True
+    ttl_seconds: int = 300
+    reaction: str = "repeat"
+
+
+@dataclass
 class AlertDetectionConfig:
     enabled: bool = True
     channels: list[str] = field(default_factory=list)
     rules: list[AlertRule] = field(default_factory=list)
+    dedup: AlertDedupConfig = field(default_factory=AlertDedupConfig)
 
 
 @dataclass
@@ -151,6 +159,16 @@ def _parse_mcp_server(raw: dict) -> MCPServerConfig:
         enabled=_parse_bool(raw.get("enabled", True)),
         cache_tools=_parse_bool(raw.get("cache_tools", True)),
         headers=raw.get("headers", {}),
+    )
+
+
+def _parse_alert_dedup(raw: dict) -> AlertDedupConfig:
+    if not raw:
+        return AlertDedupConfig()
+    return AlertDedupConfig(
+        enabled=_parse_bool(raw.get("enabled", True)),
+        ttl_seconds=int(raw.get("ttl_seconds", 300)),
+        reaction=raw.get("reaction", "repeat"),
     )
 
 
@@ -215,6 +233,7 @@ def load_config(path: str) -> AppConfig:
             enabled=_parse_bool(alert_data.get("enabled", True)),
             channels=alert_data.get("channels", []),
             rules=[_parse_alert_rule(r) for r in alert_data.get("rules", [])],
+            dedup=_parse_alert_dedup(alert_data.get("dedup", {})),
         ),
         response=ResponseConfig(
             max_length=int(response_data.get("max_length", 3000)),

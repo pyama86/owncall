@@ -168,3 +168,29 @@ class TestLoadConfig:
     def test_mention_channels_defaults_empty(self, minimal_config_yaml):
         cfg = load_config(minimal_config_yaml)
         assert cfg.mention.channels == []
+
+    def test_alert_dedup_parsed(self, tmp_path):
+        content = textwrap.dedent("""
+            slack:
+              app_token: "xapp-test"
+              bot_token: "xoxb-test"
+            alert_detection:
+              enabled: true
+              dedup:
+                enabled: true
+                ttl_seconds: 600
+                reaction: "hourglass"
+              rules: []
+        """)
+        p = tmp_path / "cfg.yml"
+        p.write_text(content)
+        cfg = load_config(str(p))
+        assert cfg.alert_detection.dedup.enabled is True
+        assert cfg.alert_detection.dedup.ttl_seconds == 600
+        assert cfg.alert_detection.dedup.reaction == "hourglass"
+
+    def test_alert_dedup_defaults(self, minimal_config_yaml):
+        cfg = load_config(minimal_config_yaml)
+        assert cfg.alert_detection.dedup.enabled is True
+        assert cfg.alert_detection.dedup.ttl_seconds == 300
+        assert cfg.alert_detection.dedup.reaction == "repeat"

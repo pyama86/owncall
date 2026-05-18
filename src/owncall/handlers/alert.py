@@ -19,6 +19,7 @@ import logging
 from agents import Runner
 
 from owncall.config import AppConfig
+from owncall.util.alert_dedup import AlertDeduplicator
 from owncall.util.alert_detect import extract_alert_summary, is_alert_message
 from owncall.util.slack_format import post_response
 
@@ -46,6 +47,11 @@ def register_alert_handler(app, agent, bot_user_id: str, cfg: AppConfig) -> None
     preventing Bolt from returning 404 "unhandled request" for those events.
     """
 
+    dedup_cfg = cfg.alert_detection.dedup
+    deduplicator: AlertDeduplicator | None = (
+        AlertDeduplicator(ttl_seconds=dedup_cfg.ttl_seconds) if dedup_cfg.enabled else None
+    )
+
     @app.event("message")
     async def handle_possible_alert(body: dict, client, logger=logger) -> None:
         message = body.get("event", {})
@@ -72,6 +78,23 @@ def register_alert_handler(app, agent, bot_user_id: str, cfg: AppConfig) -> None
 
         event_ts = message["ts"]
 
+        # Deduplicate similar alerts within the TTL window
+        summary = extract_alert_summary(message)
+        if deduplicator and deduplicator.is_duplicate(summary, channel):
+            logger.info("Skipping duplicate alert in %s/%s", channel, event_ts)
+            try:
+                await client.reactions_add(
+                    channel=channel,
+                    timestamp=event_ts,
+                    name=dedup_cfg.reaction,
+                )
+            except Exception:
+                logger.debug("Could not add dedup reaction", exc_info=True)
+            return
+
+        if deduplicator:
+            deduplicator.record(summary, channel)
+
         try:
             await client.reactions_add(
                 channel=channel,
@@ -83,7 +106,6 @@ def register_alert_handler(app, agent, bot_user_id: str, cfg: AppConfig) -> None
 
         async with _INVESTIGATION_SEMAPHORE:
             try:
-                summary = extract_alert_summary(message)
                 prompt = _INVESTIGATION_PROMPT_TEMPLATE.format(summary=summary)
                 namespace = cfg.channel_namespace_map.get(channel)
                 if namespace:
