@@ -46,6 +46,12 @@ alert_detection:
   # Restrict alert detection to specific channel IDs.
   # Leave empty to monitor all channels the bot is in.
   channels: []
+  # Deduplication: skip LLM investigation for similar alerts within TTL window.
+  # A reaction is added instead to indicate the alert was recognized but skipped.
+  dedup:
+    enabled: true
+    ttl_seconds: 300      # seconds to suppress similar alerts (default: 5 min)
+    reaction: "repeat"    # emoji reaction for deduplicated alerts
   rules:
     - type: "bot_name"
       pattern: "(?i)grafana|alertmanager|prometheus"
