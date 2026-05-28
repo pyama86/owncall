@@ -9,6 +9,11 @@ Skips:
   replies in the alert thread are handled via @mention).
 - Messages in channels not listed in alert_detection.channels (when the
   list is non-empty).
+
+When alert_detection.response_channel is set, investigation results are
+posted to that channel (e.g. a private channel) instead of the alert's
+original channel. A link to the original alert is posted first so that
+the response thread is traceable back to the source.
 """
 
 from __future__ import annotations
@@ -104,6 +109,21 @@ def register_alert_handler(app, agent, bot_user_id: str, cfg: AppConfig) -> None
         except Exception:
             logger.debug("Could not add investigation reaction", exc_info=True)
 
+        # When response_channel is configured, relay the alert link there and
+        # post investigation results in that channel's thread instead.
+        # This allows owncall responses to be confined to a private channel
+        # even when alerts arrive in public channels.
+        configured_response_channel = cfg.alert_detection.response_channel
+        if configured_response_channel:
+            relay_ts = await _relay_alert_to_response_channel(
+                client, channel, event_ts, configured_response_channel
+            )
+            post_channel = configured_response_channel if relay_ts else channel
+            post_ts = relay_ts if relay_ts else event_ts
+        else:
+            post_channel = channel
+            post_ts = event_ts
+
         async with _INVESTIGATION_SEMAPHORE:
             try:
                 prompt = _INVESTIGATION_PROMPT_TEMPLATE.format(summary=summary)
@@ -116,16 +136,16 @@ def register_alert_handler(app, agent, bot_user_id: str, cfg: AppConfig) -> None
 
                 await post_response(
                     client=client,
-                    channel=channel,
-                    thread_ts=event_ts,
+                    channel=post_channel,
+                    thread_ts=post_ts,
                     text=result.final_output,
                     max_length=cfg.response.max_length,
                 )
             except Exception:
                 logger.exception("Error investigating alert in %s/%s", channel, event_ts)
                 await client.chat_postMessage(
-                    channel=channel,
-                    thread_ts=event_ts,
+                    channel=post_channel,
+                    thread_ts=post_ts,
                     text=":warning: Failed to investigate this alert automatically.",
                 )
             finally:
@@ -145,6 +165,34 @@ def register_alert_handler(app, agent, bot_user_id: str, cfg: AppConfig) -> None
                     )
                 except Exception:
                     logger.debug("Could not add complete reaction", exc_info=True)
+
+
+async def _relay_alert_to_response_channel(
+    client, alert_channel: str, alert_ts: str, response_channel: str
+) -> str | None:
+    """Post a permalink to the alert in response_channel.
+
+    Returns the ts of the relay message so the investigation result can be
+    threaded under it, or None if posting failed.
+    """
+    try:
+        permalink_result = await client.chat_getPermalink(
+            channel=alert_channel, message_ts=alert_ts
+        )
+        permalink = permalink_result["permalink"]
+    except Exception:
+        logger.debug("Could not get alert permalink", exc_info=True)
+        return None
+
+    try:
+        result = await client.chat_postMessage(
+            channel=response_channel,
+            text=f"Alert detected: {permalink}",
+        )
+        return result["ts"]
+    except Exception:
+        logger.debug("Could not post alert link to response channel", exc_info=True)
+        return None
 
 
 def _is_own_message(message: dict, bot_user_id: str) -> bool:
