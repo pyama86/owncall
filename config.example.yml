@@ -46,6 +46,12 @@ alert_detection:
   # Restrict alert detection to specific channel IDs.
   # Leave empty to monitor all channels the bot is in.
   channels: []
+  # When set, alert investigation results are posted to this channel instead of
+  # the alert's original channel. A link to the original alert message is posted
+  # first, and all owncall responses appear in that link's thread. Useful when
+  # you want to keep all owncall activity in a private channel even if alerts
+  # arrive in public channels.
+  # response_channel: "C0123PRIVATE"
   # Deduplication: skip LLM investigation for similar alerts within TTL window.
   # A reaction is added instead to indicate the alert was recognized but skipped.
   dedup:

@@ -114,6 +114,7 @@ class AlertDetectionConfig:
     channels: list[str] = field(default_factory=list)
     rules: list[AlertRule] = field(default_factory=list)
     dedup: AlertDedupConfig = field(default_factory=AlertDedupConfig)
+    response_channel: str = ""
 
 
 @dataclass
@@ -234,6 +235,7 @@ def load_config(path: str) -> AppConfig:
             channels=alert_data.get("channels", []),
             rules=[_parse_alert_rule(r) for r in alert_data.get("rules", [])],
             dedup=_parse_alert_dedup(alert_data.get("dedup", {})),
+            response_channel=alert_data.get("response_channel", ""),
         ),
         response=ResponseConfig(
             max_length=int(response_data.get("max_length", 3000)),

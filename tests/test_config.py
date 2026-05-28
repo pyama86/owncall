@@ -194,3 +194,22 @@ class TestLoadConfig:
         assert cfg.alert_detection.dedup.enabled is True
         assert cfg.alert_detection.dedup.ttl_seconds == 300
         assert cfg.alert_detection.dedup.reaction == "repeat"
+
+    def test_alert_response_channel_parsed(self, tmp_path):
+        content = textwrap.dedent("""
+            slack:
+              app_token: "xapp-test"
+              bot_token: "xoxb-test"
+            alert_detection:
+              enabled: true
+              response_channel: "C0123PRIVATE"
+              rules: []
+        """)
+        p = tmp_path / "cfg.yml"
+        p.write_text(content)
+        cfg = load_config(str(p))
+        assert cfg.alert_detection.response_channel == "C0123PRIVATE"
+
+    def test_alert_response_channel_defaults_empty(self, minimal_config_yaml):
+        cfg = load_config(minimal_config_yaml)
+        assert cfg.alert_detection.response_channel == ""
