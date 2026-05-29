@@ -21,9 +21,7 @@ class TestRelayAlertToResponseChannel:
         )
 
         assert ts == "111.222"
-        client.chat_getPermalink.assert_called_once_with(
-            channel="C_PUBLIC", message_ts="000001"
-        )
+        client.chat_getPermalink.assert_called_once_with(channel="C_PUBLIC", message_ts="000001")
         client.chat_postMessage.assert_called_once_with(
             channel="C_PRIVATE",
             text="Alert detected: https://slack.com/archives/C123/p000001",
