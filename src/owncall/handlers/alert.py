@@ -181,7 +181,9 @@ async def _relay_alert_to_response_channel(
         )
         permalink = permalink_result["permalink"]
     except Exception:
-        logger.debug("Could not get alert permalink", exc_info=True)
+        logger.warning(
+            "Could not get alert permalink for %s/%s", alert_channel, alert_ts, exc_info=True
+        )
         return None
 
     try:
@@ -191,7 +193,9 @@ async def _relay_alert_to_response_channel(
         )
         return result["ts"]
     except Exception:
-        logger.debug("Could not post alert link to response channel", exc_info=True)
+        logger.warning(
+            "Could not post alert link to response channel %s", response_channel, exc_info=True
+        )
         return None
 
 
