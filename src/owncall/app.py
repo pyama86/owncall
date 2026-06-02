@@ -12,6 +12,7 @@ Shutdown unwinds in reverse, closing MCP connections cleanly.
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import logging
 
@@ -74,3 +75,12 @@ async def run_bot(config: AppConfig) -> None:
         handler = AsyncSocketModeHandler(slack_app, config.slack.app_token)
         logger.info("Starting Socket Mode handler…")
         await handler.start_async()
+
+
+async def run_bots(configs: list[AppConfig]) -> None:
+    """Start one bot per config concurrently.
+
+    Used when a config directory is passed at startup so that multiple teams
+    can each have their own config file without running separate processes.
+    """
+    await asyncio.gather(*[run_bot(cfg) for cfg in configs])
