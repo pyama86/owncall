@@ -10,7 +10,7 @@ Skips:
 - Messages in channels not listed in alert_detection.channels (when the
   list is non-empty).
 
-When alert_detection.response_channel is set, investigation results are
+When ``alert_detection.response_channel`` is set, investigation results are
 posted to that channel (e.g. a private channel) instead of the alert's
 original channel. A link to the original alert is posted first so that
 the response thread is traceable back to the source.
@@ -21,11 +21,12 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from agents import Runner
-
+from owncall.agent import AgentBundle
 from owncall.config import AppConfig
 from owncall.util.alert_dedup import AlertDeduplicator
 from owncall.util.alert_detect import extract_alert_summary, is_alert_message
+from owncall.util.cost import format_usage_footer
+from owncall.util.judge_runner import run_agent_with_judge
 from owncall.util.slack_format import post_response
 
 logger = logging.getLogger(__name__)
@@ -44,12 +45,13 @@ Identify the likely root cause and suggest remediation steps.
 """
 
 
-def register_alert_handler(app, agent, bot_user_id: str, cfg: AppConfig) -> None:
+def register_alert_handler(app, bundle: AgentBundle, bot_user_id: str, cfg: AppConfig) -> None:
     """Register the message event handler for alert detection.
 
-    Uses @app.event("message") instead of @app.message() so that messages
-    with subtypes (e.g. bot_message) are also captured and acknowledged,
-    preventing Bolt from returning 404 "unhandled request" for those events.
+    Uses ``@app.event("message")`` instead of ``@app.message()`` so that
+    messages with subtypes (e.g. ``bot_message``) are also captured and
+    acknowledged, preventing Bolt from returning 404 "unhandled request" for
+    those events.
     """
 
     dedup_cfg = cfg.alert_detection.dedup
@@ -61,19 +63,15 @@ def register_alert_handler(app, agent, bot_user_id: str, cfg: AppConfig) -> None
     async def handle_possible_alert(body: dict, client, logger=logger) -> None:
         message = body.get("event", {})
 
-        # Skip thread replies — only root messages trigger auto-investigation
         if message.get("thread_ts") and message["thread_ts"] != message.get("ts"):
             return
 
-        # Skip messages from the bot itself to prevent feedback loops
         if _is_own_message(message, bot_user_id):
             return
 
-        # Skip plain human messages (no bot_id and no subtype)
         if not message.get("bot_id") and not message.get("subtype"):
             return
 
-        # Optionally restrict to configured channels
         channel = message.get("channel", "")
         if cfg.alert_detection.channels and channel not in cfg.alert_detection.channels:
             return
@@ -83,7 +81,6 @@ def register_alert_handler(app, agent, bot_user_id: str, cfg: AppConfig) -> None
 
         event_ts = message["ts"]
 
-        # Deduplicate similar alerts within the TTL window
         summary = extract_alert_summary(message)
         if deduplicator and deduplicator.is_duplicate(summary, channel):
             logger.info("Skipping duplicate alert in %s/%s", channel, event_ts)
@@ -109,10 +106,6 @@ def register_alert_handler(app, agent, bot_user_id: str, cfg: AppConfig) -> None
         except Exception:
             logger.debug("Could not add investigation reaction", exc_info=True)
 
-        # When response_channel is configured, relay the alert link there and
-        # post investigation results in that channel's thread instead.
-        # This allows owncall responses to be confined to a private channel
-        # even when alerts arrive in public channels.
         configured_response_channel = cfg.alert_detection.response_channel
         if configured_response_channel:
             relay_ts = await _relay_alert_to_response_channel(
@@ -132,22 +125,58 @@ def register_alert_handler(app, agent, bot_user_id: str, cfg: AppConfig) -> None
                     prompt += f"\nThe Kubernetes namespace for this channel is: {namespace}\n"
 
                 logger.info("Auto-investigating alert in %s/%s", channel, event_ts)
-                result = await Runner.run(agent, prompt, max_turns=cfg.agent.max_turns)
+                judged = await asyncio.wait_for(
+                    run_agent_with_judge(
+                        bundle.primary,
+                        prompt,
+                        max_turns=cfg.agent.max_turns,
+                        judge_cfg=cfg.judge,
+                    ),
+                    timeout=cfg.agent.run_timeout_seconds,
+                )
+
+                footer = (
+                    format_usage_footer(judged.raw_result, cfg.llm.pricing)
+                    if cfg.response.cost_footer and not judged.blocked
+                    else ""
+                )
 
                 await post_response(
                     client=client,
                     channel=post_channel,
                     thread_ts=post_ts,
-                    text=result.final_output,
+                    text=judged.final_output,
                     max_length=cfg.response.max_length,
+                    footer=footer,
                 )
+
+            except TimeoutError:
+                logger.warning(
+                    "Alert investigation timed out after %.1fs in %s/%s",
+                    cfg.agent.run_timeout_seconds,
+                    channel,
+                    event_ts,
+                )
+                try:
+                    await client.chat_postMessage(
+                        channel=post_channel,
+                        thread_ts=post_ts,
+                        text=":hourglass_flowing_sand: Investigation timed out.",
+                    )
+                except Exception:
+                    logger.debug("Could not post timeout notice", exc_info=True)
+
             except Exception:
                 logger.exception("Error investigating alert in %s/%s", channel, event_ts)
-                await client.chat_postMessage(
-                    channel=post_channel,
-                    thread_ts=post_ts,
-                    text=":warning: Failed to investigate this alert automatically.",
-                )
+                try:
+                    await client.chat_postMessage(
+                        channel=post_channel,
+                        thread_ts=post_ts,
+                        text=":warning: Failed to investigate this alert automatically.",
+                    )
+                except Exception:
+                    logger.debug("Could not post error notice", exc_info=True)
+
             finally:
                 try:
                     await client.reactions_remove(
@@ -170,10 +199,10 @@ def register_alert_handler(app, agent, bot_user_id: str, cfg: AppConfig) -> None
 async def _relay_alert_to_response_channel(
     client, alert_channel: str, alert_ts: str, response_channel: str
 ) -> str | None:
-    """Post a permalink to the alert in response_channel.
+    """Post a permalink to the alert in ``response_channel``.
 
     Returns the ts of the relay message so the investigation result can be
-    threaded under it, or None if posting failed.
+    threaded under it, or ``None`` if posting failed.
     """
     try:
         permalink_result = await client.chat_getPermalink(

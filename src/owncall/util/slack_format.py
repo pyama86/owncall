@@ -61,10 +61,25 @@ async def post_response(
     thread_ts: str,
     text: str,
     max_length: int,
+    footer: str = "",
 ) -> None:
-    """Post agent output to a Slack thread, uploading as a file if too long."""
+    """Post agent output to a Slack thread, uploading as a file if too long.
+
+    ``footer`` is appended verbatim after the formatted body and is always
+    delivered, even when the body is uploaded as a file (so the cost summary
+    stays visible in the thread).
+    """
     formatted = markdown_to_mrkdwn(text)
-    truncated, was_truncated = truncate(formatted, max_length)
+    # Reserve room for the footer so the visible body still fits the limit.
+    body_budget = max(0, max_length - len(footer))
+    truncated, was_truncated = (
+        truncate(formatted, body_budget)
+        if body_budget
+        else (
+            "",
+            bool(formatted),
+        )
+    )
 
     if was_truncated:
         # Upload full response as a file, then post a short notice
@@ -79,7 +94,7 @@ async def post_response(
             await client.chat_postMessage(
                 channel=channel,
                 thread_ts=thread_ts,
-                text=truncated + _FILE_UPLOAD_SUFFIX,
+                text=truncated + _FILE_UPLOAD_SUFFIX + footer,
             )
             return
         except Exception:
@@ -88,5 +103,5 @@ async def post_response(
     await client.chat_postMessage(
         channel=channel,
         thread_ts=thread_ts,
-        text=truncated,
+        text=truncated + footer,
     )

@@ -10,6 +10,7 @@ a persistent store.
 from __future__ import annotations
 
 import logging
+import re
 
 from slack_sdk.web.async_client import AsyncWebClient
 
@@ -18,6 +19,13 @@ logger = logging.getLogger(__name__)
 # Maximum number of thread messages to include in the context window.
 # Older messages are dropped to avoid exceeding token limits.
 _MAX_THREAD_MESSAGES = 50
+
+# Past bot replies often carry a single-line cost footer appended by
+# :func:`owncall.util.cost.format_usage_footer` (``_:money_with_wings: ...
+# · N calls_``).  That footer is purely informational for humans reading
+# the thread; replaying it into the next turn's input only burns tokens, so
+# strip it from assistant messages before they re-enter the context.
+_COST_FOOTER_PATTERN = re.compile(r"\n+_:money_with_wings:[^_\n]*_\s*$")
 
 
 class ThreadContextManager:
@@ -47,8 +55,13 @@ class ThreadContextManager:
         for msg in messages:
             role = _message_role(msg, self._bot_user_id)
             text = msg.get("text", "").strip()
-            if text:
-                input_list.append({"role": role, "content": text})
+            if not text:
+                continue
+            if role == "assistant":
+                text = _strip_bot_metadata(text)
+                if not text:
+                    continue
+            input_list.append({"role": role, "content": text})
 
         return input_list
 
@@ -58,3 +71,9 @@ def _message_role(msg: dict, bot_user_id: str) -> str:
     if msg.get("bot_id") or msg.get("user") == bot_user_id:
         return "assistant"
     return "user"
+
+
+def _strip_bot_metadata(text: str) -> str:
+    """Remove cost footer and similar bot-only metadata before re-input."""
+    cleaned = _COST_FOOTER_PATTERN.sub("", text)
+    return cleaned.strip()

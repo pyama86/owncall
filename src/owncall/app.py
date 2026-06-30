@@ -1,9 +1,11 @@
 """Main application: assembles MCP servers, agent, and Slack app.
 
 Startup order:
+
 1. Load config
 2. Open MCP server connections (async context managers via AsyncExitStack)
-3. Build the agent with active MCP servers
+3. Build the agent bundle (single agent, or primary + investigator) with
+   active MCP servers
 4. Create Slack AsyncApp and register event handlers
 5. Start Socket Mode handler (blocks until shutdown)
 
@@ -32,13 +34,11 @@ logger = logging.getLogger(__name__)
 async def run_bot(config: AppConfig) -> None:
     """Start the OwnCall Slack bot."""
 
-    # Build MCP server instances from config (disabled servers are excluded)
-    server_instances = build_mcp_servers(config.mcp_servers)
+    server_instances = build_mcp_servers(config.mcp_servers, config.tool_compression)
 
     if not server_instances:
         logger.warning("No MCP servers are enabled. The agent will have no tools available.")
 
-    # Open all MCP server connections and keep them alive for the bot lifetime
     async with contextlib.AsyncExitStack() as stack:
         active_servers = []
         for server in server_instances:
@@ -46,15 +46,21 @@ async def run_bot(config: AppConfig) -> None:
             active_servers.append(connected)
             logger.info("Connected to MCP server '%s'", server.name)
 
-        # Build the agent with all connected MCP servers
-        agent = create_agent(config.llm, config.agent, active_servers)
+        bundle = create_agent(
+            config.llm,
+            config.agent,
+            active_servers,
+            subagent_cfg=config.subagent,
+            judge_cfg=config.judge,
+        )
         logger.info(
-            "Agent created with model=%s and %d MCP server(s)",
+            "Agent bundle created with model=%s, subagent=%s, judge=%s, %d MCP server(s)",
             config.llm.model,
+            config.subagent.enabled,
+            config.judge.enabled,
             len(active_servers),
         )
 
-        # Create the Slack app
         slack_app = AsyncApp(token=config.slack.bot_token)
 
         # Resolve the bot's own user ID (needed for thread context role mapping
@@ -65,12 +71,10 @@ async def run_bot(config: AppConfig) -> None:
 
         thread_ctx = ThreadContextManager(slack_app.client, bot_user_id)
 
-        # Register event handlers
-        register_mention_handler(slack_app, agent, thread_ctx, config)
-        register_alert_handler(slack_app, agent, bot_user_id, config)
-        register_block_action_handlers(slack_app, agent, thread_ctx, config)
+        register_mention_handler(slack_app, bundle, thread_ctx, config)
+        register_alert_handler(slack_app, bundle, bot_user_id, config)
+        register_block_action_handlers(slack_app, bundle, thread_ctx, config)
 
-        # Start Socket Mode (blocks until SIGINT/SIGTERM)
         handler = AsyncSocketModeHandler(slack_app, config.slack.app_token)
         logger.info("Starting Socket Mode handler…")
         await handler.start_async()
