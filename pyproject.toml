@@ -13,7 +13,7 @@ keywords = ["slack", "grafana", "mcp", "sre", "observability"]
 dependencies = [
     "openai-agents>=0.17.8",
     "slack-bolt>=1.18.0",
-    "slack-sdk>=3.27.0",
+    "slack-sdk>=3.43.0",
     "pyyaml>=6.0",
     "aiohttp>=3.14.1",
 ]
